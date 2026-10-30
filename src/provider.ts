@@ -3,7 +3,7 @@ import { calculateCost, createAssistantMessageEventStream } from "@earendil-work
 import type { AnchorRegistry } from "./anchors.ts";
 import { fingerprint, historyText, type InputPart, piToolName, readTranscript, type Transcript, turnInput } from "./convert.ts";
 import type { HostSpec, MuseSession, ToolCallInfo } from "./host.ts";
-import { museEffort } from "./models.ts";
+import { isContributorModel, museEffort } from "./models.ts";
 import { errorText, sha } from "./util.ts";
 
 export const API = "muse-code-sdk";
@@ -160,6 +160,8 @@ export class MuseSdkProvider {
 		const n = t.messages.length;
 		for (const s of this.sessions) {
 			if (s.dead || s.busy || s.spec.ephemeral !== spec.ephemeral || s.spec.systemPrompt !== t.systemPrompt || s.spec.toolsHash !== t.toolsHash || s.spec.cwd !== spec.cwd) continue;
+			// Contributor billing is a per-process `muse serve` flag; it cannot be flipped via setModel.
+			if (isContributorModel(s.spec.model) !== isContributorModel(spec.model)) continue;
 			if (s.count > n || t.chain[s.count] !== s.chain) continue;
 			const tail = t.messages.slice(s.count);
 			if (tail.some((m) => m.role === "assistant")) continue;

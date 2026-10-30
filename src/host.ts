@@ -5,7 +5,7 @@ import type { Tool, ToolResultMessage } from "@earendil-works/pi-ai";
 import type { CallToolResult, McpBridge } from "./bridge.ts";
 import { type InputPart, MCP_TOOLSET } from "./convert.ts";
 import { cleanEnv, removeHostConfig, type SkillsOff, writeHostConfig } from "./home.ts";
-import type { CatalogRow, MuseEffort } from "./models.ts";
+import { baseModelId, isContributorModel, type CatalogRow, type MuseEffort } from "./models.ts";
 import { AsyncQueue, errorText } from "./util.ts";
 
 const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
@@ -164,7 +164,9 @@ export class MuseHost implements MuseSession {
 			skillsOff: await host.skillsOff(),
 			...(host.settingsOverlay ? { overlay: host.settingsOverlay } : {}),
 		});
-		const args = ["serve", "--contributor-mode", host.contributorMode, "--disable-request-user-input"];
+		const contributorMode = isContributorModel(spec.model) ? "on" : host.contributorMode;
+		const wireModel = baseModelId(spec.model);
+		const args = ["serve", "--contributor-mode", contributorMode, "--disable-request-user-input"];
 		if (spec.ephemeral) args.push("--no-session-log");
 		const handshake = spawnMspConnection({
 			command: host.museBin,
@@ -185,13 +187,13 @@ export class MuseHost implements MuseSession {
 		const c = this.spawned.connection;
 		const open = spec.open;
 		let result: any;
-		if (open.kind === "fresh") result = await c.command("session/start", { workspaceRoot: spec.cwd, modelId: spec.model, approvalMode: "allowAll" });
-		else if (open.kind === "resume") result = await c.command("session/resume", { sessionId: open.sessionId, excludeItems: true, modelId: spec.model });
+		if (open.kind === "fresh") result = await c.command("session/start", { workspaceRoot: spec.cwd, modelId: wireModel, approvalMode: "allowAll" });
+		else if (open.kind === "resume") result = await c.command("session/resume", { sessionId: open.sessionId, excludeItems: true, modelId: wireModel });
 		else result = await c.command("session/fork", { sessionId: open.sessionId, cutPoint: { lastTurnId: open.turnId }, excludeItems: true });
 		this.sessionId = String(result.session.sessionId);
 		if (open.kind !== "fresh") {
 			await c.command("session/setApprovalMode", { sessionId: this.sessionId, mode: "allowAll" });
-			if (open.kind === "fork") await c.command("session/setModel", { sessionId: this.sessionId, model: { modelId: spec.model } });
+			if (open.kind === "fork") await c.command("session/setModel", { sessionId: this.sessionId, model: { modelId: wireModel } });
 		}
 		if (this.spawned.initializeResult.grantedCapabilities.includes("rawLog")) {
 			try {
@@ -327,7 +329,7 @@ export class MuseHost implements MuseSession {
 
 	async setModel(model: string): Promise<void> {
 		if (model === this.model) return;
-		await this.connection().command("session/setModel", { sessionId: this.sessionId, model: { modelId: model } });
+		await this.connection().command("session/setModel", { sessionId: this.sessionId, model: { modelId: baseModelId(model) } });
 		this.model = model;
 	}
 

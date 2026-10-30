@@ -22,7 +22,7 @@ export function musePreamble(o: PromptOptions, docs: DocPaths): string {
 	for (const g of o.promptGuidelines) guidelines.add(g.trim());
 	guidelines.delete("");
 
-	return `You are a coding agent in pi, a terminal coding harness, running on a Muse model from Meta. You help the user by reading files, running commands, and editing code in their project.
+	return `You are a coding agent in the cli, a terminal coding harness, running on a Muse model from Meta. You help the user by reading files, running commands, and editing code in their project.
 
 Tools:
 ${tools.length > 0 ? tools.join("\n") : "(none)"}
@@ -38,7 +38,7 @@ How to work:
 - If the request is ambiguous in a way that changes the result, ask. Otherwise state your assumption and proceed.
 - Be concise. Lead with the outcome and show file paths clearly.${guidelines.size > 0 ? `\n\nGuidelines:\n${[...guidelines].map((g) => `- ${g}`).join("\n")}` : ""}
 
-Questions about pi itself (extensions, skills, settings, its SDK): read ${docs.readme}, the docs in ${docs.docs} and the examples in ${docs.examples} first.`;
+Questions about the cli itself (extensions, skills, settings, its SDK): read ${docs.readme}, the docs in ${docs.docs} and the examples in ${docs.examples} first.`;
 }
 
 /**

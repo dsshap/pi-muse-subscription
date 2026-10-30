@@ -26,13 +26,25 @@ export const SNAPSHOT: CatalogRow[] = [
 const CONTEXT = 1_000_000;
 const OUTPUT = 128_000;
 
+/** Suffix for selectable contributor-billing variants. Muse Code itself only sees the base ID
+ * plus `muse serve --contributor-mode on`; the suffix is pi-side only. */
+export const CONTRIBUTOR_SUFFIX = "-contributor";
+
+export function isContributorModel(id: string): boolean {
+	return id.endsWith(CONTRIBUTOR_SUFFIX);
+}
+
+export function baseModelId(id: string): string {
+	return isContributorModel(id) ? id.slice(0, -CONTRIBUTOR_SUFFIX.length) : id;
+}
+
 export function museModels(rows: readonly CatalogRow[] = SNAPSHOT): ProviderChatModelConfig[] {
-	return rows.map((r) => {
+	return rows.flatMap((r) => {
 		const variants = Array.isArray(r.variants) ? new Set(r.variants as string[]) : undefined;
 		const map: Record<string, string | null> = { off: variants && !variants.has("none") ? null : "none" };
 		for (const level of PI_LEVELS) map[level] = !variants || variants.has(level) ? level : null;
 		const context = r.contextLimit ? Math.min(CONTEXT, Math.floor(r.contextLimit * 0.95)) : CONTEXT;
-		return {
+		const base = {
 			id: r.modelId,
 			name: `${r.displayLabel || r.modelId} (Muse subscription)`,
 			reasoning: true,
@@ -43,6 +55,17 @@ export function museModels(rows: readonly CatalogRow[] = SNAPSHOT): ProviderChat
 			maxTokens: r.outputLimit ?? OUTPUT,
 			thinkingLevelMap: map,
 		} as ProviderChatModelConfig;
+		// Skip synthesis if the catalog already ships a contributor ID.
+		if (isContributorModel(r.modelId)) return [base];
+		return [
+			base,
+			{
+				...base,
+				id: `${r.modelId}${CONTRIBUTOR_SUFFIX}`,
+				name: `${r.displayLabel || r.modelId} (Muse subscription, contributor)`,
+				thinkingLevelMap: { ...map },
+			} as ProviderChatModelConfig,
+		];
 	});
 }
 
